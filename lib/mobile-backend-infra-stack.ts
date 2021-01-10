@@ -91,7 +91,7 @@ export class MobileBackendInfraStack extends cdk.Stack {
     const asg = new as.AutoScalingGroup(this, 'rophy_ab2_mbackend_asg', {
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3A, ec2.InstanceSize.NANO),
       machineImage: ec2.MachineImage.lookup({
-        name: 'rophy-ab2-mbackend-0002'
+        name: config.imageName
       }),
       vpc: vpc,
       allowAllOutbound: true,
