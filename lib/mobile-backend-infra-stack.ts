@@ -3,7 +3,7 @@ import * as cdk from '@aws-cdk/core';
 import { CfnAutoScalingGroup, CfnLaunchConfiguration, AutoScalingGroup } from '@aws-cdk/aws-autoscaling';
 import { InstanceType, InstanceClass, InstanceSize, SubnetSelection, GenericLinuxImage, Vpc, SecurityGroup, Peer, Port, MachineImage } from '@aws-cdk/aws-ec2';
 import { ApplicationTargetGroup } from '@aws-cdk/aws-elasticloadbalancingv2';
-import { Role } from '@aws-cdk/aws-iam';
+import { Role, LazyRole, Policy, PolicyStatement, ServicePrincipal, CfnInstanceProfile, Effect } from '@aws-cdk/aws-iam';
 import * as fs from 'fs';
 import * as yaml from 'yaml';
 
@@ -32,6 +32,27 @@ export class MobileBackendInfraStack extends cdk.Stack {
       );
     }
 
+    const ec2Role = new Role(this, 'rophy_ab2_mbackend_role', {
+      roleName: 'rophy-ab2-mbackend-role',
+      assumedBy: new ServicePrincipal('ec2.amazonaws.com')
+    });
+
+    const policy = new Policy(this, 'rophy_ab2_mbackend_policy', {
+      statements: [
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          resources: ['*'],
+          actions: ['s3:Get*', 's3:List*' ]
+        })
+      ]
+    });
+
+    ec2Role.attachInlinePolicy(policy);
+
+    const instanceProfile = new CfnInstanceProfile(this, 'rophy_ab2_mbackend_inst_profile', {
+      roles: [ec2Role.roleName]
+    })
+
     const asg = new AutoScalingGroup(this, 'rophy_ab2_mbackend_asg', {
       instanceType: InstanceType.of(InstanceClass.T3A, InstanceSize.NANO),
       machineImage: MachineImage.lookup({
@@ -44,7 +65,7 @@ export class MobileBackendInfraStack extends cdk.Stack {
       keyName: config.keyName,
       minCapacity: 1,
       maxCapacity: 6,
-      role: Role.fromRoleArn(this, 'rophy_ab2_mbackend_role', config.instanceRoleArn),
+      role: ec2Role,
       securityGroup: securityGroup
 
     });
@@ -52,30 +73,7 @@ export class MobileBackendInfraStack extends cdk.Stack {
     asg.attachToApplicationTargetGroup(ApplicationTargetGroup.fromTargetGroupAttributes(this, 'rophy-ab2-mbackend-tg', {
       targetGroupArn: config.albTargetGroupArn
     }));
-    
 
-    /*
-    const launchConfig = new CfnLaunchConfiguration(this, 'rophy_ab2_mbackend_lg', {
-      launchConfigurationName: 'rophy-ab2-mbackend-lg',
-      imageId: config.imageId,
-      instanceType: 't3a.nano',
-      iamInstanceProfile: config.iamInstanceProfile,
-      keyName: config.keyName,
-      securityGroups: [securityGroup.uniqueId]
-    });
-    launchConfig.cfnOptions.deletionPolicy = cdk.CfnDeletionPolicy.DELETE;
-
-    const asg = new CfnAutoScalingGroup(this, 'rophy_ab2_backend_asg', {
-      autoScalingGroupName: 'rophy-ab2-mbackend-asg',
-      maxSize: '6',
-      minSize: '1',
-      launchConfigurationName: launchConfig.launchConfigurationName,
-      availabilityZones: config.availabilityZones,
-      loadBalancerNames: [config.loadBalancerNames]
-    });
-    asg.cfnOptions.deletionPolicy = cdk.CfnDeletionPolicy.DELETE;
-    asg.addDependsOn(launchConfig);
-    */
   }
 }
 
