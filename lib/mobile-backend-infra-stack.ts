@@ -1,8 +1,8 @@
 import * as cdk from '@aws-cdk/core';
 
-import { CfnAutoScalingGroup, CfnLaunchConfiguration, AutoScalingGroup } from '@aws-cdk/aws-autoscaling';
-import { InstanceType, InstanceClass, InstanceSize, SubnetSelection, GenericLinuxImage, Vpc, SecurityGroup, Peer, Port, MachineImage } from '@aws-cdk/aws-ec2';
-import { ApplicationTargetGroup } from '@aws-cdk/aws-elasticloadbalancingv2';
+import * as as from '@aws-cdk/aws-autoscaling';
+import * as ec2 from '@aws-cdk/aws-ec2';
+import * as elb from '@aws-cdk/aws-elasticloadbalancingv2';
 import { Role, LazyRole, Policy, PolicyStatement, ServicePrincipal, CfnInstanceProfile, Effect } from '@aws-cdk/aws-iam';
 import * as fs from 'fs';
 import * as yaml from 'yaml';
@@ -13,21 +13,56 @@ export class MobileBackendInfraStack extends cdk.Stack {
   constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const vpc = Vpc.fromLookup(this, 'rophy_ab2_vpc', {
+    const vpc = ec2.Vpc.fromLookup(this, 'rophy_ab2_vpc', {
       vpcName: 'rophy-ab2-vpc'
     });
 
-    const securityGroup = new SecurityGroup(this, 'rophy_ab2_sg', {
+    const albSecGroup = new ec2.SecurityGroup(this, 'rophy_ab2_alb_sg', {
+      vpc: vpc,
+      allowAllOutbound: true,
+      description: 'rophy-ab2-mbackend ALB',
+      securityGroupName: 'rophy-ab2-alb-sg'
+    });
+    albSecGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'http');
+
+    const tg =  new elb.ApplicationTargetGroup(this, 'rophy_ab2_mbackend_tg', {
+      targetGroupName: 'rophy-ab2-mbackend-tg',
+      targetType: elb.TargetType.INSTANCE,
+      vpc: vpc,
+      healthCheck: {
+        path: '/messages'
+      },
+      port: 8080
+    });
+
+
+    const alb = new elb.ApplicationLoadBalancer(this, 'rophy_ab2_mbackend_alb', {
+      vpc: vpc,
+      loadBalancerName: 'rophy-ab2-mbackend-alb',
+      internetFacing: true,
+      securityGroup: albSecGroup,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PUBLIC
+      },
+    });
+
+    alb.addListener('rophy_ab2_mbackend_alb_listener', {
+      defaultTargetGroups: [tg],
+      port: 80
+    });
+
+
+    const securityGroup = new ec2.SecurityGroup(this, 'rophy_ab2_sg', {
       vpc: vpc,
       allowAllOutbound: true,
       description: 'mbackend ec2 security group',
       securityGroupName: 'rophy-ab2-mbackend-ec2'
     });
-    securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(8080), 'mbackend service port');
+    securityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(8080), 'mbackend service port');
     if (config.bastionSecurityGroup) {
       securityGroup.addIngressRule(
-        SecurityGroup.fromSecurityGroupId(this, 'bastion_sg', config.bastionSecurityGroup),
-        Port.tcp(22),
+        ec2.SecurityGroup.fromSecurityGroupId(this, 'bastion_sg', config.bastionSecurityGroup),
+        ec2.Port.tcp(22),
         'allow ssh from bastion'
       );
     }
@@ -53,9 +88,9 @@ export class MobileBackendInfraStack extends cdk.Stack {
       roles: [ec2Role.roleName]
     })
 
-    const asg = new AutoScalingGroup(this, 'rophy_ab2_mbackend_asg', {
-      instanceType: InstanceType.of(InstanceClass.T3A, InstanceSize.NANO),
-      machineImage: MachineImage.lookup({
+    const asg = new as.AutoScalingGroup(this, 'rophy_ab2_mbackend_asg', {
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3A, ec2.InstanceSize.NANO),
+      machineImage: ec2.MachineImage.lookup({
         name: 'rophy-ab2-mbackend-0002'
       }),
       vpc: vpc,
@@ -70,9 +105,7 @@ export class MobileBackendInfraStack extends cdk.Stack {
 
     });
 
-    asg.attachToApplicationTargetGroup(ApplicationTargetGroup.fromTargetGroupAttributes(this, 'rophy-ab2-mbackend-tg', {
-      targetGroupArn: config.albTargetGroupArn
-    }));
+    asg.attachToApplicationTargetGroup(tg);
 
   }
 }
