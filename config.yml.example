@@ -1,0 +1,17 @@
+region: 'us-east-2'    
+account: '106523462671'
+
+# bastion ec2
+bastionSecurityGroup: 'sg-0fa59e1c8fef46467'
+
+# mbackend ec2
+imageId: 'ami-02ad598890253f2e5'
+instanceRoleArn: 'arn:aws:iam::106523462671:instance-profile/CodeDeploy-EC2-Instance-Profile'
+keyName: 'rophy-ab2'
+
+availabilityZones:
+  - 'us-east-2a'
+  - 'us-east-2b'
+  - 'us-east-2c'
+
+albTargetGroupArn: 'arn:aws:elasticloadbalancing:us-east-2:106523462671:targetgroup/rophy-ab2-mbackend-tg/278fcc09c8447a7b'
