@@ -10,3 +10,4 @@ phases:
 cache:
   paths:
     - 'node_modules/**/*'
+    - 'cdk.context.json'
