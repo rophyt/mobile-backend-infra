@@ -1,0 +1,12 @@
+version: 0.1
+
+phases:
+  build:
+    commands:
+      - node --version && npm --version
+      - cp config-prd.yml config.yml
+      - npm install
+      - node_modules/.bin/cdk deploy
+cache:
+  paths:
+    - 'node_modules/**/*'

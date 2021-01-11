@@ -1,0 +1,9 @@
+region: 'us-east-2'
+account: '997493196088'
+
+# bastion ec2
+# bastionSecurityGroup: 'sg-0fa59e1c8fef46467'
+
+# mbackend ec2
+imageName: 'rophy-ab2-mbackend-0002'
+keyName: 'rophy-ab2-prd'

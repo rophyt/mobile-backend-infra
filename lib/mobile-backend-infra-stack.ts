@@ -30,7 +30,10 @@ export class MobileBackendInfraStack extends cdk.Stack {
       targetType: elb.TargetType.INSTANCE,
       vpc: vpc,
       healthCheck: {
-        path: '/messages'
+        path: '/messages',
+        healthyThresholdCount: 2,
+        unhealthyThresholdCount: 2,
+        interval: cdk.Duration.seconds(15)
       },
       port: 8080
     });
