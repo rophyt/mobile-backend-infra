@@ -7,6 +7,8 @@ import { Role, LazyRole, Policy, PolicyStatement, ServicePrincipal, CfnInstanceP
 import * as fs from 'fs';
 import * as yaml from 'yaml';
 
+ddddd
+
 const config = yaml.parse(fs.readFileSync('config.yml', 'utf8'));
 
 export class MobileBackendInfraStack extends cdk.Stack {
